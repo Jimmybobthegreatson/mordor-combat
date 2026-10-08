@@ -1,5 +1,5 @@
-//! Loads Talion's skeleton and the animation banks from the install and spawns the skeleton as joint entities, drawn as a stick figure.
-//! No character mesh, texture or material is read.
+//! Spawns a plain humanoid stick figure of our own ([`Skeleton::humanoid`]) and loads the animation banks from the install onto it.
+//! No character skeleton, mesh, texture or material is read.
 
 use bevy::prelude::*;
 use som_formats::animator::Library;
@@ -7,7 +7,6 @@ use som_formats::gamedb::GameDb;
 use som_formats::skel::Skeleton;
 use som_formats::vfs::Vfs;
 
-const SKELETON: &str = "models/player/player_talion/player_talion_pd.skel";
 const GAMEDB: &str = "database/game/game.gamedb";
 /// Length of the sword drawn as a line from the right-hand weapon bone (m).
 const BLADE: f32 = 1.0;
@@ -119,7 +118,7 @@ fn load_character(mut commands: Commands) {
 
 fn try_load(commands: &mut Commands) -> anyhow::Result<Rig> {
     let mut vfs = Vfs::open(Vfs::locate()?)?;
-    let skeleton = Skeleton::parse(&vfs.read(SKELETON)?)?;
+    let skeleton = Skeleton::humanoid();
     let mut lib = Library::new(&skeleton)?;
     for bank in crate::combat::bank_paths() {
         lib.add_bank(&vfs.read(&bank)?)?;

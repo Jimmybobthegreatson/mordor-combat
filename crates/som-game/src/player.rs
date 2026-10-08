@@ -700,7 +700,7 @@ pub fn drive_player(
     let edge = |held: bool, down: bool| (down && !held, down);
     let (roll_pressed, down) = edge(player.roll_held, options.pressed(&keys, &time, KeyCode::Space));
     player.roll_held = down;
-    let attack_held_now = player.attack_held;
+    let _attack_held_now = player.attack_held;
     let (attack_pressed, down) =
         edge(player.attack_held, mouse.pressed(MouseButton::Left) || options.pressed(&keys, &time, KeyCode::KeyL));
     player.attack_held = down;

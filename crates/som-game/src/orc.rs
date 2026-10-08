@@ -10,20 +10,13 @@
 
 use bevy::prelude::*;
 use som_formats::animator::{Animator, ClipId, Library};
-use som_formats::gamedb::GameDb;
 use som_formats::skel::Skeleton;
 use som_formats::vfs::Vfs;
 
 use crate::character::{to_bevy_quat, to_bevy_vec};
 use crate::combat::Dummies;
 
-/// The rank-and-file orcs of Mordor: (mesh, model record). They share one 112-bone skeleton (`orc_infantry.skel`,
-/// identical bone for bone), so one animation library serves them all. The berserker has a different rig.
-/// The common grunt of Mordor is put together from body pieces (`Model` records): a torso, a head and legs of one build
-/// (`Buff`, `Stk`, `Slim`), all skinned to the same 108-bone skeleton, plus a weapon in the right hand.
-const PIECES: [&str; 3] = ["Smp_Orc_Buff_Torso01", "Smp_Orc_Buff_Head01", "Smp_Orc_Buff_Legs01"];
-const WEAPON: &str = "Wep_Orc_Mace01";
-const GAMEDB: &str = "database/game/game.gamedb";
+/// The orc's animation banks (it uses the same generic stick figure as the player).
 const BANKS: &[&str] = som_formats::banks::ORC;
 
 /// Counter variants (the clip name suffix), for an attacker in front of and behind the player.
@@ -174,16 +167,7 @@ pub fn load_orcs(mut commands: Commands, mut dummies: ResMut<Dummies>, mut capsu
 
 fn build(commands: &mut Commands, dummies: &mut Dummies) -> anyhow::Result<Orcs> {
     let mut vfs = Vfs::open(Vfs::locate()?)?;
-    let db = GameDb::parse(vfs.read(GAMEDB)?)?;
-    // A `Model` record names its skeleton file; the mesh sits beside it.
-    let model_file = |record: &str| -> anyhow::Result<String> {
-        let entry = db.record("Model", record).ok_or_else(|| anyhow::anyhow!("no Model record {record}"))?;
-        match entry.field(som_formats::hash::name_hash("ModelFile")) {
-            Some(som_formats::gamedb::Value::Strings(s)) if !s.is_empty() => Ok(som_formats::normalize_path(&s[0])),
-            _ => anyhow::bail!("{record} has no ModelFile"),
-        }
-    };
-    let skeleton = Skeleton::parse(&vfs.read(&model_file(PIECES[0])?)?)?;
+    let skeleton = Skeleton::humanoid();
     let mut lib = Library::new(&skeleton)?;
     for bank in BANKS.iter().copied() {
         lib.add_bank(&vfs.read(bank)?)?;

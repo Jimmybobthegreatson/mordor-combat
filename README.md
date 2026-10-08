@@ -5,8 +5,8 @@ An unofficial Rust / [Bevy](https://bevy.org) reimplementation of the **combat, 
 stun and knock-down rules) and the player behaviour graph (gait clips and rates, camera).
 
 **This repository contains no game assets and no character models.** You need your own copy of the game. The program reads the `.arch05`
-archives of your install in place at runtime (animations, skeleton, database) and never copies or writes them. Characters are drawn as
-stick figures (their skeletons) on a flat baseplate, so no mesh, texture or material is ever loaded. Climbing / traversal is not part of this project.
+archives of your install in place at runtime (animations, game database, behaviour graph) and never copies or writes them. Characters are our own
+plain humanoid stick figure (a 26-bone rig defined in code, `Skeleton::humanoid`) on a flat baseplate, so no model, skeleton, mesh, texture or material of the game is ever loaded. Climbing / traversal is not part of this project.
 
 ## Run
 

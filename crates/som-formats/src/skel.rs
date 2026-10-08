@@ -141,6 +141,46 @@ impl Skeleton {
         Ok(Self { bones, engine_order })
     }
 
+    /// A plain humanoid stick figure of our own (T-pose, 1.8 m, identity orientations): the body chain the animations drive, by the
+    /// names the animation banks use. No game skeleton data.
+    pub fn humanoid() -> Self {
+        // (name, parent, model-space position in cm)
+        let spec: &[(&str, Option<usize>, Vec3)] = &[
+            ("Null", None, [0.0, 0.0, 0.0]),
+            ("Pelvis", Some(0), [0.0, 100.0, 0.0]),
+            ("Torso_Base", Some(1), [0.0, 108.0, 0.0]),
+            ("Torso", Some(2), [0.0, 120.0, 0.0]),
+            ("Upper_Torso", Some(3), [0.0, 135.0, 0.0]),
+            ("Spine4_joint", Some(4), [0.0, 145.0, 0.0]),
+            ("Neck", Some(5), [0.0, 152.0, 0.0]),
+            ("Head", Some(6), [0.0, 162.0, 0.0]),
+            ("L_Shoulder", Some(5), [8.0, 148.0, 0.0]),
+            ("L_Armu", Some(8), [18.0, 148.0, 0.0]),
+            ("L_Arml", Some(9), [45.0, 148.0, 0.0]),
+            ("L_Hand", Some(10), [72.0, 148.0, 0.0]),
+            ("L_Weapon", Some(11), [80.0, 148.0, 0.0]),
+            ("R_Shoulder", Some(5), [-8.0, 148.0, 0.0]),
+            ("R_Armu", Some(13), [-18.0, 148.0, 0.0]),
+            ("R_Arml", Some(14), [-45.0, 148.0, 0.0]),
+            ("R_Hand", Some(15), [-72.0, 148.0, 0.0]),
+            ("R_Weapon", Some(16), [-80.0, 148.0, 0.0]),
+            ("L_Legu", Some(1), [10.0, 95.0, 0.0]),
+            ("L_Legl", Some(18), [10.0, 52.0, 0.0]),
+            ("L_Foot", Some(19), [10.0, 10.0, 0.0]),
+            ("L_Toe", Some(20), [10.0, 4.0, 14.0]),
+            ("R_Legu", Some(1), [-10.0, 95.0, 0.0]),
+            ("R_Legl", Some(22), [-10.0, 52.0, 0.0]),
+            ("R_Foot", Some(23), [-10.0, 10.0, 0.0]),
+            ("R_Toe", Some(24), [-10.0, 4.0, 14.0]),
+        ];
+        let bones: Vec<Bone> = spec
+            .iter()
+            .map(|&(name, parent, translation)| Bone { name: name.to_string(), name_hash: name_hash(name), parent, flags: 0, translation, rotation: [0.0, 0.0, 0.0, 1.0] })
+            .collect();
+        let engine_order = (0..bones.len()).collect();
+        Self { bones, engine_order }
+    }
+
     pub fn find(&self, name: &str) -> Option<usize> {
         let hash = name_hash(name);
         self.bones.iter().position(|b| b.name_hash == hash)
