@@ -1,0 +1,13 @@
+[package]
+name = "som-tool"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "som"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+som-formats = { path = "../som-formats" }

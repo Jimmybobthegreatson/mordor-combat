@@ -1,0 +1,14 @@
+/target
+/out
+/dump
+*.arch05
+*.embb
+*.mesh
+*.skel
+*.anix
+*.tex
+*.mat
+*.dds
+*.bvr
+*.gamedb
+*.png

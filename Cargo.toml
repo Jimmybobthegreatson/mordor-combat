@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = ["crates/som-formats", "crates/som-tool", "crates/som-game"]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+license = "MIT"
+
+[workspace.dependencies]
+anyhow = "1"
+flate2 = "1"
+
+# Parsers decompress hundreds of MB; keep them fast in dev builds too.
+[profile.dev.package."*"]
+opt-level = 3
+[profile.dev.package.som-formats]
+opt-level = 3

@@ -1,0 +1,9 @@
+[package]
+name = "som-formats"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+flate2.workspace = true

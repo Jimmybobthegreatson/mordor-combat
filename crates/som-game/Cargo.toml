@@ -1,0 +1,10 @@
+[package]
+name = "som-game"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+bevy = { version = "0.19.1", features = ["dds"] }
+som-formats = { path = "../som-formats" }
