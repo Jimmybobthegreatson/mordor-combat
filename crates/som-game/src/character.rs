@@ -9,8 +9,8 @@ use som_formats::vfs::Vfs;
 
 const SKELETON: &str = "models/player/player_talion/player_talion_pd.skel";
 const GAMEDB: &str = "database/game/game.gamedb";
-/// The sword's own skeleton (one bone line along the blade).
-const SWORD_SKELETON: &str = "models/weapons/ranger_equipment/ranger_sword03/ranger_sword03.skel";
+/// Length of the sword drawn as a line from the right-hand weapon bone (m).
+const BLADE: f32 = 1.0;
 
 /// Game units are centimetres.
 const CM: f32 = 0.01;
@@ -19,7 +19,7 @@ pub struct CharacterPlugin;
 
 impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, load_character).add_systems(Update, draw_sticks);
+        app.add_systems(Startup, load_character).add_systems(Update, (draw_sticks, draw_blade));
     }
 }
 
@@ -45,7 +45,7 @@ pub struct Rig {
     pub attacks: Vec<som_formats::combatdb::PcAttack>,
     /// The game's move nodes and their attacks.
     pub moves: som_formats::combatnodes::Moves,
-    /// The drawn sword in his hand (hidden while sheathed).
+    /// The sword in his hand.
     pub sword: Entity,
     /// The sheathed sword on his back (nothing to show without a mesh).
     pub back_sword: Vec<Entity>,
@@ -54,6 +54,10 @@ pub struct Rig {
     pub dagger_sheath: Entity,
     pub dagger_hand: Entity,
 }
+
+/// The sword: a line along the weapon bone.
+#[derive(Component)]
+pub struct Blade(Vec3);
 
 /// A joint drawn as a line to its parent.
 #[derive(Component)]
@@ -75,6 +79,14 @@ pub fn draw_sticks(mut gizmos: Gizmos, joints: Query<(&GlobalTransform, &ChildOf
             if from.translation().distance(at.translation()) < 0.5 {
                 gizmos.line(from.translation(), at.translation(), joint.color);
             }
+        }
+    }
+}
+
+pub fn draw_blade(mut gizmos: Gizmos, blades: Query<(&GlobalTransform, &InheritedVisibility, &Blade)>) {
+    for (at, visible, blade) in &blades {
+        if visible.get() {
+            gizmos.line(at.translation(), at.translation() + at.rotation() * blade.0 * BLADE, Color::srgb(1.0, 1.0, 1.0));
         }
     }
 }
@@ -123,17 +135,16 @@ fn try_load(commands: &mut Commands) -> anyhow::Result<Rig> {
     let moves = som_formats::combatnodes::load(&db)?;
     let joints = spawn_stick(commands, &skeleton, root, Color::srgb(0.2, 0.9, 1.0));
 
-    // The drawn sword rides in the right hand, hidden until combat.
-    let sword = commands.spawn((Name::new("Sword"), Transform::default(), Visibility::Hidden)).id();
-    match (|| -> anyhow::Result<()> {
-        let hand = skeleton.find("R_Weapon").ok_or_else(|| anyhow::anyhow!("no R_Weapon bone"))?;
-        let sword_skel = Skeleton::parse(&vfs.read(SWORD_SKELETON)?)?;
-        spawn_stick(commands, &sword_skel, sword, Color::srgb(0.9, 0.9, 0.9));
+    // The sword is a line from the right-hand weapon bone (no weapon model is read).
+    let sword = commands.spawn((Name::new("Sword"), Transform::default(), Visibility::default())).id();
+    if let (Some(hand), Some(forearm)) = (skeleton.find("R_Weapon"), skeleton.find("R_Arml")) {
+        // It runs the way the forearm points: the weapon bone's local axis nearest to that direction in the bind pose.
+        let dir = to_bevy_vec(skeleton.bones[hand].translation) - to_bevy_vec(skeleton.bones[forearm].translation);
+        let inverse = to_bevy_quat(skeleton.bones[hand].rotation).inverse();
+        let local = inverse * dir.normalize_or_zero();
+        let axis = [Vec3::X, Vec3::Y, Vec3::Z, -Vec3::X, -Vec3::Y, -Vec3::Z].into_iter().max_by(|a, b| a.dot(local).total_cmp(&b.dot(local))).unwrap_or(Vec3::X);
         commands.entity(joints[hand]).add_child(sword);
-        Ok(())
-    })() {
-        Ok(()) => {}
-        Err(err) => warn!("sword unavailable: {err:#}"),
+        commands.entity(sword).insert(Blade(axis));
     }
 
     // The dagger has no stick of its own; the entity only keeps the stealth-kill bookkeeping working.

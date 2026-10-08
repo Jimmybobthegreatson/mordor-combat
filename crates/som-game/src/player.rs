@@ -33,7 +33,8 @@ const TURN_MOVING: f32 = 6.0;
 /// Gentle correction while a turning clip is already rotating the character.
 const TURN_CORRECT: f32 = 1.2;
 /// Seconds out of combat before the sword goes back on his back.
-const SHEATHE_AFTER: f32 = 8.0;
+/// Seconds after the last combat during which the gait trees take their combat branch (`InCombat`).
+const COMBAT_MEMORY: f32 = 8.0;
 /// Seconds without landing a hit before the hit counter resets.
 /// What Talion carries for the move predicates: the gore setting and the Execution ability.
 const ITEMS: &[&str] = &["CSP_HeadExp", "CSP_Chord_InstaK"];
@@ -106,9 +107,6 @@ enum Loco {
     Counter,
     Hurt,
     Roll,
-    /// Drawing the sword; combat input is held until the blade is out.
-    Draw,
-    Sheathe,
 }
 
 impl Player {
@@ -266,7 +264,7 @@ struct Combat {
 /// The clip and rate of the graph's gait state for the keys held: `Sprint` for running, `Walking` otherwise (`Walking` / `Sprint` and their
 /// clip trees from `player_elf.bvr`; crouching and the sword being out pick the tree's stealth / combat branches).
 fn gait(player: &Player, lib: &Library, run: bool) -> Option<(ClipId, f32)> {
-    let ctx = crate::gait::GroundCtx { stealth: player.crouching, in_combat: player.combat.drawn, node_time: player.gait_time, move_mag: 1.0 };
+    let ctx = crate::gait::GroundCtx { stealth: player.crouching, in_combat: player.combat.calm < COMBAT_MEMORY, node_time: player.gait_time, move_mag: 1.0 };
     let state = if run { "Sprint" } else { "Walking" };
     let picked = player.gaits.as_ref().and_then(|g| g.steady(state, ctx, lib));
     if std::env::var_os("SOM_GAIT_DEBUG").is_some() {
@@ -369,7 +367,7 @@ fn init_player(mut commands: Commands, rig: Option<Res<Rig>>, player: Option<Res
         hurt_held: false,
         counter_held: false,
         catalog: Catalog::build(&rig.lib, &rig.attacks, &rig.moves),
-        combat: Combat { stance: "LL".into(), warp: 1.0, ..default() },
+        combat: Combat { stance: "LL".into(), warp: 1.0, drawn: true, calm: 99.0, ..default() },
         gaits: crate::gait::GaitGraph::load().map_err(|err| error!("no gait graph: {err:#}")).ok(),
     };
     commands.insert_resource(player);
@@ -388,11 +386,6 @@ fn read_input(options: &Options, keys: &ButtonInput<KeyCode>, time: &Time, camer
 }
 
 /// When the playing clip fires the cue `name` (seconds into the clip), or `default`.
-/// Seconds of calm before the sword goes away (`SOM_CALM` overrides it, for scripted checks).
-fn sheathe_after() -> f32 {
-    std::env::var("SOM_CALM").ok().and_then(|v| v.parse().ok()).unwrap_or(SHEATHE_AFTER)
-}
-
 fn cue_of(player: &Player, lib: &Library, name: &str, default: f32) -> f32 {
     player.animator.current().and_then(|clip| lib.event_s(clip, name)).unwrap_or(default)
 }
@@ -720,7 +713,7 @@ pub fn drive_player(
     if player.combat.combo == 0 {
         player.combat.charged = false;
     }
-    let execute_pressed = finisher_pressed && player.combat.charged && !matches!(player.state, Loco::Counter | Loco::Hurt | Loco::Draw | Loco::Sheathe);
+    let execute_pressed = finisher_pressed && player.combat.charged && !matches!(player.state, Loco::Counter | Loco::Hurt );
     let (counter_pressed, down) =
         edge(player.counter_held, mouse.pressed(MouseButton::Right) || options.pressed(&keys, &time, KeyCode::KeyQ));
     player.counter_held = down;
@@ -812,7 +805,7 @@ pub fn drive_player(
         let foot = player.animator.phase(lib) >= 0.5;
         player.state = Loco::Stopping;
         let state = if run { if foot { "RunToIdle_R" } else { "RunToIdle_L" } } else { "Walking_To_Idle" };
-        let ctx = crate::gait::GroundCtx { stealth: player.crouching, in_combat: player.combat.drawn, node_time: 0.0, move_mag: 0.0 };
+        let ctx = crate::gait::GroundCtx { stealth: player.crouching, in_combat: player.combat.calm < COMBAT_MEMORY, node_time: 0.0, move_mag: 0.0 };
         let (clip, rate) = player.gaits.as_ref().and_then(|g| g.steady(state, ctx, lib)).unwrap_or((if run { player.clips.stop_run } else { player.clips.stop_walk }, 1.0));
         player.gait_rate = rate;
         play(player, clip, false, 0.15, 0.0);
@@ -820,7 +813,7 @@ pub fn drive_player(
     let elapsed = player.animator.elapsed_s(lib);
     let free = matches!(
         player.state,
-        Loco::Idle | Loco::Starting { .. } | Loco::Moving { .. } | Loco::Stopping | Loco::Turning { .. } | Loco::Sheathe
+        Loco::Idle | Loco::Starting { .. } | Loco::Moving { .. } | Loco::Stopping | Loco::Turning { .. }
     );
     let recovering = matches!(player.state, Loco::Attack { level } if level > 0) && elapsed >= player.combat.cancel_s;
 
@@ -853,7 +846,7 @@ pub fn drive_player(
     }
     let was_crouching = player.crouching;
     // Crouch (stealth) toggles while on his feet; fighting stands him up.
-    let fighting = matches!(player.state, Loco::Attack { .. } | Loco::Roll | Loco::Counter | Loco::Hurt | Loco::Draw);
+    let fighting = matches!(player.state, Loco::Attack { .. } | Loco::Roll | Loco::Counter | Loco::Hurt);
     let standing_up = fighting || attack_pressed || roll_pressed || counter_pressed;
     if (crouch_pressed && matches!(player.state, Loco::Idle | Loco::Moving { .. } | Loco::Stopping)) || (player.crouching && standing_up) {
         player.crouching = !player.crouching && !standing_up;
@@ -864,9 +857,7 @@ pub fn drive_player(
             go_moving(&mut player, run, 0.3, 0.0);
         }
     }
-    // Combat entry: counter, roll, attack, get hurt. From sheathed, an attack draws the sword first.
-    let sheathed = !player.combat.drawn;
-    let draw = player.catalog.unsheathe;
+    // Combat entry: counter, roll, attack, get hurt.
     // The counter prompt is up: the counter key (or a tap of attack) answers it.
     let prompted = counters.prompt.filter(|_| free || recovering);
     let counter_ctx = |pos: Vec3, parry_open: bool| {
@@ -914,8 +905,8 @@ pub fn drive_player(
             player.yaw = (-to.x).atan2(-to.z);
         }
         if begin_sync(&mut player, lib, &mut counters, orc, front, &def.clip, victim, crate::orc::Place::Facing, false) {
-            // The basic counter and the kill counters finish the orc; the others leave it stunned / knocked down.
-            player.combat.sync_lethal = matches!(def.node.as_str(), "PC_Counter_Basic" | "PC_Counter_Kill");
+            // Only the kill counter finishes the orc; the others (the basic counter included) leave it stunned / knocked down.
+            player.combat.sync_lethal = def.node == "PC_Counter_Kill";
             player.combat.sync_applied = def.applied.clone();
             info!("counter {} ({}) lethal {}", def.name, def.node, player.combat.sync_lethal);
         }
@@ -1012,10 +1003,6 @@ pub fn drive_player(
             place,
             true,
         );
-    } else if attack_pressed && free && sheathed && draw.is_some() {
-        player.combat.calm = 0.0;
-        player.state = Loco::Draw;
-        play(&mut player, draw.unwrap(), false, 0.15, 0.0);
     } else if attack_pressed && free {
         // Sprinting into an attack is the dash attack.
         player.combat.dash_next = matches!(player.state, Loco::Moving { run: true }) && player.speed > 3.0;
@@ -1178,44 +1165,6 @@ pub fn drive_player(
                 }
             }
         }
-        Loco::Draw => {
-            // The blade leaves the scabbard on the clip's UNSHEATH cue; after that the pending input may cut in.
-            let cue = cue_of(&player, lib, "UNSHEATH", 0.45);
-            if elapsed >= cue {
-                player.combat.drawn = true;
-                player.combat.calm = 0.0;
-            }
-            let released = elapsed >= cue + 0.25;
-            if released && (attack_held_now || attack_pressed) {
-                begin_attack(&mut player, lib, &dummies, &mut counters, true, dir, 0.15);
-            } else if ended || (released && moving_input) {
-                if moving_input {
-                    go_moving(&mut player, run, 0.25, 0.0);
-                } else {
-                    go_idle(&mut player);
-                }
-            }
-        }
-        Loco::Sheathe => {
-            let cue = cue_of(&player, lib, "SHEATH", 1.0);
-            if elapsed >= cue {
-                player.combat.drawn = false;
-            }
-            if ended || (elapsed >= cue && moving_input) {
-                if moving_input {
-                    go_moving(&mut player, run, 0.25, 0.0);
-                } else {
-                    go_idle(&mut player);
-                }
-            } else if elapsed < cue && (moving_input || attack_pressed || counter_pressed) {
-                // Changed his mind before the blade went in.
-                if moving_input {
-                    go_moving(&mut player, run, 0.25, 0.0);
-                } else {
-                    go_idle(&mut player);
-                }
-            }
-        }
         Loco::Idle => {}
     }
 
@@ -1229,8 +1178,7 @@ pub fn drive_player(
         | Loco::Counter
         | Loco::Hurt
         | Loco::Roll
-        | Loco::Draw
-        | Loco::Sheathe => 0.0,
+        => 0.0,
     };
     if moving_input {
         let diff = shortest_angle(player.yaw, wanted);
@@ -1358,18 +1306,8 @@ pub fn drive_player(
     if player.combat.since_hit > COMBO_TIMEOUT {
         player.combat.combo = 0;
     }
-    // Out of combat for a while: put the sword away once standing still.
-    if player.combat.drawn && free {
-        player.combat.calm += dt;
-        if player.combat.calm > sheathe_after() && matches!(player.state, Loco::Idle) {
-            if let Some(clip) = player.catalog.sheathe {
-                player.state = Loco::Sheathe;
-                play(&mut player, clip, false, 0.2, 0.0);
-            } else {
-                player.combat.drawn = false;
-            }
-        }
-    }
+    // Seconds since combat last happened (the gait trees' `InCombat` branch follows it).
+    player.combat.calm += dt;
 
     if let Ok(mut transform) = transforms.get_mut(rig.player) {
         transform.translation = player.pos;

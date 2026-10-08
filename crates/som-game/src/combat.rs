@@ -87,9 +87,6 @@ pub struct Catalog {
     pub get_there: Vec<(ClipId, f32)>,
     /// The evade roll.
     pub roll: Option<ClipId>,
-    /// Drawing and stowing the sword (the game's `PL_Sword_UnSheathe_1` / `PL_Sword_Sheathe_1`).
-    pub unsheathe: Option<ClipId>,
-    pub sheathe: Option<ClipId>,
     /// Hurt reactions, light to knock-back.
     pub recoils: Vec<(ClipId, &'static str)>,
 }
@@ -167,11 +164,6 @@ impl Catalog {
             for (clip, name) in lib.clips(bank) {
                 if name.eq_ignore_ascii_case("bind") {
                     continue;
-                }
-                match name {
-                    "PL_Sword_UnSheathe_1" => catalog.unsheathe = Some(clip),
-                    "PL_Sword_Sheathe_1" => catalog.sheathe = Some(clip),
-                    _ => {}
                 }
                 let Ok((travel, _)) = lib.root_total(clip) else { continue };
                 let reach = travel[0].hypot(travel[2]) / 100.0;

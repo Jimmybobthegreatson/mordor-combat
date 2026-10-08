@@ -9,12 +9,6 @@ the character meshes belong to the full private project and are left out. Sectio
   not parse (patch bundle variant). The VFS falls back to the next-lower bundle.
 - **Skeleton** (`SKEL` v8): bone tree, model-space bind pose.
 - **Animation** (`ANIX` v42): banks of named clips; codecs SV01, AV01, SQ03, AQ03, UATR.
-- **Mesh** (`MMSH` v9): the 60-byte character vertex layout, LOD sets, bone palettes.
-- **Materials** (`LTMI` v4: shader, float parameters, texture paths) / textures (`TEXR` v3, embedded DDS,
-  BC1/BC3 decoder in `tex.rs`).
-- **Game database** (`GADB` v17, `gamedb.rs`): model -> material list per mesh slot (`model_material_sets`).
-- **Game**: Talion on a baseplate, skinned and fully textured (diffuse, normal, specular, alpha test /
-  blend), playing clips from one attack bank. `som mat <path>` shows a material.
 
 ## Locomotion (done)
 - `som-formats::animator`: `Library` maps banks onto the skeleton, `Animator` cross-fades layers and returns a
@@ -48,22 +42,11 @@ the character meshes belong to the full private project and are left out. Sectio
   `som clips` with `SOM_EVENTS=1` prints them. The attack chain times its strike and next-attack point from these.
 - Roll: `Elf_Dash_Chain_A` (`elf_block.anix`, cue `fol_ply_mvt_roll_dash`), Space; he turns to the stick direction
   first. No directional variants exist, so the roll always goes forward after the turn.
-- Sword: drawn sword is `models/weapons/ranger_equipment/ranger_sword03` (own 3-bone skeleton, material
-  `ranger_sword03.mat`) parented to the `R_Weapon` bone; the sheathed one on his back is body-mesh material slot 2
-  and is hidden while the sword is drawn. It is drawn on combat start and sheathed after 8 s calm (no unsheathe clip yet).
 - Enemy health: dummies have 100 HP, damage 14/18/30 by chain level, bars float above them (UI projected with
   `Camera::world_to_viewport`), they topple at 0 HP and respawn after 4 s.
 - Not wired: counter (sync actions), `pl_heavystabd*`, `elf_newheavy`, flurry, the DLC pools.
 
 ## Draw / stow and clip provenance (verified)
-- Draw = `PL_Sword_UnSheathe_1` (2033 ms, `UNSHEATH` cue at 450 ms), stow = `PL_Sword_Sheathe_1` (2233 ms, `SHEATH` at 990 ms), both in
-  `elfmisc/elf_combatmisc.anix`. The sword swaps hands/back on the cue; attack/block input cuts in 250 ms after the draw cue.
-  `PL_WeaponUnsheath/Sheath` (1833/2900 ms) also exist and are named in the graph (used by other contexts); the `*_WalkArmOnly` pair is the
-  moving (additive) version, not used yet.
-- Provenance: clip names are not in the exe (Ghidra `str` finds none) - they live in the behavior graph `behaviors/player/player_elf.bvr`.
-  That graph names `Elf_Dash_Chain_A` directly beside the state `PlayerIsRolling` (and a `Dash.CommandSet`), so the roll is the retail
-  evade clip; it also names `PL_Sword_(Un)Sheathe_1`, `PL_WeaponUnsheath/Sheath`, and the `Elf_Recoil_*` set. `Elf_*`/`PL_*` are Talion's
-  prefixes (`Cel_`/`CB_` = Celebrimbor). `SOM_CALM=<s>` overrides the 8 s sheathe delay for scripted checks.
 
 ## Freeflow attack pools (decoded from `database/game/game.gamedb`)
 The chain logic is not in the behavior graph (`player_elf.bvr` is a GADB of locomotion/climb/ride states: `BlendState`, `StateTransition`,
@@ -91,8 +74,6 @@ The chain logic is not in the behavior graph (`player_elf.bvr` is a GADB of loco
 - Still undecoded: finishers (`PC_Flurry_*`, syncs: saved for the orc work), and what BGA/EGA/BDW/AEE mean.
 
 ## Orcs
-- Model `models/npc/orcs/orc_infantry.{mesh,skel}` (112 bones, 7 submeshes), materials from `Model:Cha_Orc_Infantry` (head/torso/legs/infantry armor).
-  Talion's `Library`/`Animator` work unchanged on it (bones are matched by name hash; root bone `Null`).
 - Banks: `animation/infantry/orc/orc_inf_{behavior,combat_attack,awareness}`, `shared/global/bip_recoils` (183 clips) and `bip_deathposes`,
   `shared/orc/orc_combat_block`, `orc_awareness`. Idle `Combat_Idle2`, `Combat_Walk`/`Combat_Run`, attacks `Bip_Cmbt_Attack_Front_1/3` (cues `STARTFACING`..
   `STOPFACING`, `APPLYDAMAGE`).
@@ -147,17 +128,11 @@ The chain logic is not in the behavior graph (`player_elf.bvr` is a GADB of loco
   Heavy input (`PC_PoolAttacks_Hvy`, ground strikes on `KnockedDown`) and the named/special counters are not wired.
 - **Cue timelines**: some clips (orc attacks, sync pairs) carry cues stretched past their key data (last cue ~2x the clip); `Library::event_s` scales them by `duration/last cue`
   when the last cue is >1.15x the duration, which puts orc blows where the arm swings.
-- **Dagger**: `player_dagger01_pd` (+ `_hir.mat`) rides in the back sheath bone `Dagger_Sheath_Socket` and moves to `L_Weapon` for stealth kills (the sword stays sheathed);
-  `SOM_DAGGER=1` forces it into the hand. The game uses it only through sync actions (item predicate `PC_SwordOrDagger`); there is no separate dagger freeflow set in the database.
 
 ## Conventions
 - Units are centimetres, Y up, left-handed with Z forward. `som-game` mirrors Z for Bevy:
   positions `(x, y, -z) * 0.01`, quaternions `(-x, -y, z, w)`.
 - Quaternions are `(x, y, z, w)`; world = parent * local.
-- SKEL and MMSH store bones depth-first with model-space transforms; ANIX stores
-  parent-relative transforms per node and identifies nodes by name hash (`hash.rs`).
-- The engine's bone index is not the depth-first index: children of a node occupy a contiguous
-  block allocated when the node is read (`skel::engine_order`). Mesh palettes use that index.
 - Animation time is in milliseconds; keys sit ~33 ms apart.
 
 ## Reverse engineering workflow
@@ -168,12 +143,9 @@ The chain logic is not in the behavior graph (`player_elf.bvr` is a GADB of loco
   `EvaluateBlock<TAG> decoded NAN` strings, including plain-C `_Reference` versions.
 
 ## Open questions
-- `game.gamedb` also holds attack tables etc.; only `Model` -> `_StructuresMaterialSet` is decoded (field hash
-  0x610e3b97 = material paths). `game.gamedb_patch` merging is not implemented.
 - Patch bundle layout in DLC2/NF_Patch (needed for DLC skins).
 - ANIX: the `STRI` codec and the third channel (hash 0x210c8f5a) on the player; clip events
   (hit frames, cancel windows) have not been looked for yet.
-- MMSH: vertex element 5 (ubyte4, offset 48) is unread; UV scale is assumed to be 1/32767.
 - Cloth (`.hkt`, Havok) is not simulated: cloak, hair and pouches follow their bind pose.
 
 ## Stun trigger (decoded), hit timing, orc kinds
@@ -186,7 +158,6 @@ The chain logic is not in the behavior graph (`player_elf.bvr` is a GADB of loco
   `CSP_Wraith_Punch_2` (not given), the basic `CP_BasicWraith` ones are.
 - **Hit delay (measured)**: the blade passes the orc ~0.84 s into the clip, the `APPLYDAMAGE` cue is at 1.23 s. The blow now fires when the blade has passed its closest
   point to a target in front (<1 m) inside BCOL..ECOL; the cue is only the fallback.
-- **Orc kinds**: infantry, spearman and defender share one 112-bone skeleton and model records (`Cha_Orc_*`) with their own materials; the berserker rig differs (116 bones).
 
 ## Native stun / finisher / hit logic (second pass; user's native video)
 - **Controls now**: LMB = freeflow attack only, **F = finisher** on a stunned orc (prompt `FINISH [F]` floats over it, like the video's click prompt), Q/RMB counter,
@@ -219,7 +190,6 @@ The chain logic is not in the behavior graph (`player_elf.bvr` is a GADB of loco
 - **Dash attack**: sprinting (Shift, > 3 m/s) + LMB selects `Dash_Attack` (`PC_DashAttack_Short` 0-2 m, `PC_DashAttack` 2-7 m, clip `Elf_DashAttack`).
 - **Counters**: all four families of the game's data: `PC_Counter_Basic` (hit counter <= 8, kills), `PC_Counter_Stun`, `_Knockdown`, `_Knockback` (survive; stun / knock-down
   state from the data), `_Kill` (kills; instakill variants need `CSP_Chord_InstaK`). Which family a given prompt offers is not decoded: they take turns here.
-- Orc model: the spearman (`Cha_Orc_Spearman`, bone-armoured), sharing the infantry skeleton and animation banks.
 - New tools: `som findclip <name> [path]`, `som durations`, `som stats`, `som applied`, `som skel`.
 
 ## Freeflow pacing, Execution, slow motion, combo counter, the grunt (fourth pass; native videos 10-04-43 / 10-08-16)
@@ -280,12 +250,12 @@ The chain logic is not in the behavior graph (`player_elf.bvr` is a GADB of loco
 ## Twenty-eighth pass: no slow motion, stick figures
 
 - Hit-counter / kill slow motion removed (the hit-stop stays, short and never a full freeze).
-- `--stick` (or `SOM_STICK=1`): characters are drawn as their skeletons (gizmo lines, head ring; helper/IK bones longer than 0.5 m to their parent are skipped), on a bare baseplate without the towers, and orcs fight back on their own
-  (`hostile`). Used to check that the animations work without any character mesh.
 
 
 ## Open-source build
 
-- No meshes, textures or materials are read: characters are their skeletons drawn as lines (`--stick` behaviour is the only mode), on a flat baseplate. Orcs always fight back.
 - Slow motion (described in the fourth pass) is not part of this build; the hit-stop is short and never a full freeze.
 - Gait clips and rates come from the player behaviour graph (`gait.rs`); the camera uses the graph's `Camera_OnGround` profile.
+
+- Draw / sheathe animations are not part of this build: the sword is always in his hand.
+- Counters: only `PC_Counter_Kill` finishes the orc; the basic counter and the others leave it stunned / knocked down / knocked back.

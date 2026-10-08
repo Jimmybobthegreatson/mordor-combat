@@ -7,7 +7,6 @@ use som_formats::skel::Skeleton;
 use som_formats::vfs::Vfs;
 
 const TALION_SKEL: &str = "models/player/player_talion/player_talion_pd.skel";
-const TALION_MESH: &str = "models/player/player_talion/player_talion_pd.mesh";
 const ATTACK_BANK: &str = "animation/player/combatattackpool/attackpool_l1/pl_l1_d1_ll.anix";
 
 fn vfs() -> Option<Vfs> {
