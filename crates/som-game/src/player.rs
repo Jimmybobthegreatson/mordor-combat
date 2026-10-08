@@ -52,9 +52,9 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (init_player, prune_sync_moves, drive_player, update_sword, update_sword_glow, update_hud, update_combo_hud).chain().before(crate::camera::follow_camera),
+            (init_player, prune_sync_moves, drive_player, update_sword).chain().before(crate::camera::follow_camera),
         )
-        .add_systems(Startup, spawn_hud);
+        ;
     }
 }
 
@@ -1358,113 +1358,3 @@ fn prune_sync_moves(player: Option<ResMut<Player>>, orcs: Option<Res<crate::orc:
     }
 }
 
-#[derive(Component)]
-struct Hud;
-
-fn spawn_hud(mut commands: Commands) {
-    commands.spawn((
-        Text::new(""),
-        Node { position_type: PositionType::Absolute, top: Val::Px(10.0), left: Val::Px(12.0), ..default() },
-        Visibility::Hidden,
-        Hud,
-    ));
-    // The hit counter, top left, as the game shows it: a white streak with `xN` on it, red once the Hit Streak is charged.
-    commands.spawn((
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(214.0),
-            left: Val::Px(0.0),
-            width: Val::Px(230.0),
-            height: Val::Px(5.0),
-            ..default()
-        },
-        BackgroundColor(Color::srgba(0.85, 0.95, 1.0, 0.0)),
-        ComboStreak,
-    ));
-    commands.spawn((
-        Text::new(""),
-        TextFont { font_size: bevy::text::FontSize::Px(44.0), ..default() },
-        TextColor(Color::srgb(0.95, 0.95, 0.95)),
-        Node { position_type: PositionType::Absolute, top: Val::Px(184.0), left: Val::Px(26.0), ..default() },
-        ComboHud,
-    ));
-}
-
-#[derive(Component)]
-struct ComboHud;
-
-#[derive(Component)]
-struct ComboStreak;
-
-fn update_combo_hud(
-    player: Option<Res<Player>>,
-    mut hud: Query<(&mut Text, &mut TextColor, &mut TextFont), With<ComboHud>>,
-    mut streak: Query<&mut BackgroundColor, With<ComboStreak>>,
-) {
-    let Ok((mut text, mut color, mut font)) = hud.single_mut() else { return };
-    let Some(p) = player else { return };
-    let combo = p.combat.combo;
-    text.0 = if combo > 0 { format!("x{combo}") } else { String::new() };
-    // Each hit pops the number; it fades as the streak is about to run out.
-    let pop = (1.0 - p.combat.since_hit / 0.22).clamp(0.0, 1.0);
-    let fade = (1.0 - (p.combat.since_hit - (COMBO_TIMEOUT - 1.0)).max(0.0)).clamp(0.0, 1.0);
-    font.font_size = bevy::text::FontSize::Px(44.0 + 20.0 * pop);
-    color.0 = if p.combat.charged { Color::srgba(1.0, 0.16, 0.08, fade) } else { Color::srgba(0.96, 0.96, 0.96, fade) };
-    if let Ok(mut bar) = streak.single_mut() {
-        let glow = if combo > 0 { (0.35 + 0.65 * pop) * fade } else { 0.0 };
-        bar.0 = Color::srgba(0.8, 0.93, 1.0, glow);
-    }
-}
-
-/// The sword glows while the Hit Streak is charged.
-fn update_sword_glow(
-    player: Option<Res<Player>>,
-    rig: Option<Res<Rig>>,
-    time: Res<Time>,
-    children: Query<&Children>,
-    meshes: Query<&MeshMaterial3d<StandardMaterial>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut shown: Local<Option<bool>>,
-) {
-    let (Some(player), Some(rig)) = (player, rig) else { return };
-    let charged = player.combat.charged;
-    if *shown == Some(charged) && !charged {
-        return;
-    }
-    *shown = Some(charged);
-    let pulse = 0.75 + 0.25 * (time.elapsed_secs() * 9.0).sin();
-    let emissive = if charged { LinearRgba::new(9.0 * pulse, 3.2 * pulse, 0.5, 1.0) } else { LinearRgba::BLACK };
-    for entity in children.iter_descendants(rig.sword) {
-        if let Ok(material) = meshes.get(entity) {
-            if let Some(mut m) = materials.get_mut(&material.0) {
-                m.emissive = emissive;
-            }
-        }
-    }
-}
-
-/// The debug read-out and key help; F1 shows or hides it.
-fn update_hud(
-    player: Option<Res<Player>>,
-    rig: Option<Res<Rig>>,
-    keys: Res<ButtonInput<KeyCode>>,
-    mut hud: Query<(&mut Text, &mut Visibility), With<Hud>>,
-) {
-    let Ok((mut text, mut visibility)) = hud.single_mut() else { return };
-    if keys.just_pressed(KeyCode::F1) || (std::env::var_os("SOM_DEBUG_HUD").is_some() && *visibility == Visibility::Hidden) {
-        *visibility = if *visibility == Visibility::Hidden { Visibility::Inherited } else { Visibility::Hidden };
-    }
-    text.0 = match (player, rig) {
-        (Some(p), Some(r)) => format!(
-            "{:?}   {}   {:.1} m/s   HP {:.0}\nstance {}   combo {}   {}\n\nWASD: move   Shift: run   C/Ctrl: crouch   Space: roll   LMB: attack (tap to chain)   RMB/Q: counter   T: provoke an orc   H: get hurt\nCrouch + LMB behind an unaware orc: stealth kill   F: execute (Hit Streak charged, every 8 hits)\nMouse: look   Scroll: zoom   Esc: release mouse",
-            p.state,
-            p.animator.current().map_or("-", |c| r.lib.name(c)),
-            p.speed,
-            p.hp,
-            p.combat.stance,
-            p.combat.combo,
-            p.combat.last_attack,
-        ),
-        _ => "loading...".to_string(),
-    };
-}

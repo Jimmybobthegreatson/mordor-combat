@@ -260,3 +260,4 @@ The chain logic is not in the behavior graph (`player_elf.bvr` is a GADB of loco
 - Draw / sheathe animations are not part of this build: the sword is always in his hand.
 - Counters: only `PC_Counter_Kill` finishes the orc; the basic counter and the others leave it stunned / knocked down / knocked back.
 - The player and the orc are the same generic 26-bone humanoid (`Skeleton::humanoid`, names as the animation banks use them); the animations drive it through their own per-node transforms, so no game skeleton is read.
+- No HUD: the health arc, minimap, enemy markers, hit counter text and the debug read-out are gone (the hit counter still drives the attack pools and the Execution charge). The counter prompt is a mouse icon with the right button lit inside a pulsing ring over the attacking orc (RMB or Q answers it).

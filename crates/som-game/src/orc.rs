@@ -599,9 +599,52 @@ fn key_box(commands: &mut Commands, key: &str, tint: Color) -> Entity {
         .id()
 }
 
+#[derive(Component)]
+struct CounterRing;
+
+/// The counter prompt as the game shows it over the attacker: a mouse with its right button lit, inside a ring that pulses in.
+fn spawn_counter_icon(commands: &mut Commands) {
+    let white = Color::srgb(0.96, 0.97, 1.0);
+    commands
+        .spawn((
+            Node { position_type: PositionType::Absolute, width: Val::Px(34.0), height: Val::Px(48.0), ..default() },
+            Visibility::Hidden,
+            CounterPrompt,
+        ))
+        .with_children(|b| {
+            b.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(-17.0),
+                    top: Val::Px(-10.0),
+                    width: Val::Px(68.0),
+                    height: Val::Px(68.0),
+                    border: UiRect::all(Val::Px(2.0)),
+                    border_radius: BorderRadius::MAX,
+                    ..default()
+                },
+                BorderColor::all(white),
+                CounterRing,
+            ));
+            // The mouse body.
+            b.spawn((
+                Node { position_type: PositionType::Absolute, width: Val::Px(34.0), height: Val::Px(48.0), border: UiRect::all(Val::Px(2.5)), border_radius: BorderRadius::all(Val::Px(17.0)), ..default() },
+                BackgroundColor(Color::srgba(0.02, 0.03, 0.05, 0.7)),
+                BorderColor::all(white),
+            ));
+            // The right button, lit.
+            b.spawn((
+                Node { position_type: PositionType::Absolute, left: Val::Px(17.0), top: Val::Px(2.5), width: Val::Px(14.5), height: Val::Px(20.0), border_radius: BorderRadius::new(Val::ZERO, Val::Px(14.0), Val::ZERO, Val::ZERO), ..default() },
+                BackgroundColor(white),
+            ));
+            // The divide between the buttons and the rest of the body.
+            b.spawn((Node { position_type: PositionType::Absolute, left: Val::Px(2.5), top: Val::Px(22.0), width: Val::Px(29.0), height: Val::Px(2.0), ..default() }, BackgroundColor(white)));
+            b.spawn((Node { position_type: PositionType::Absolute, left: Val::Px(16.0), top: Val::Px(2.5), width: Val::Px(2.0), height: Val::Px(20.0), ..default() }, BackgroundColor(white)));
+        });
+}
+
 fn spawn_prompt(mut commands: Commands) {
-    let counter = key_box(&mut commands, "Q", Color::srgb(1.0, 0.85, 0.3));
-    commands.entity(counter).insert(CounterPrompt);
+    spawn_counter_icon(&mut commands);
     let execute = key_box(&mut commands, "F", Color::srgb(0.95, 0.97, 1.0));
     commands.entity(execute).insert(FinisherPrompt);
 }
@@ -614,6 +657,8 @@ fn update_prompt(
     mut prompt: Query<(&mut Node, &mut Visibility), With<CounterPrompt>>,
     mut finisher: Query<(&mut Node, &mut Visibility), (With<FinisherPrompt>, Without<CounterPrompt>)>,
     player: Option<Res<crate::player::Player>>,
+    time: Res<Time>,
+    mut ring: Query<&mut BorderColor, With<CounterRing>>,
 ) {
     let charged = player.as_ref().is_some_and(|p| p.is_charged());
     let near = player.as_ref().map_or(Vec3::ZERO, |p| p.pos);
@@ -638,11 +683,16 @@ fn update_prompt(
         Some(d) => match camera.world_to_viewport(camera_transform, d.pos + Vec3::Y * 2.3) {
             Ok(screen) => {
                 node.left = Val::Px(screen.x - 17.0);
-                node.top = Val::Px(screen.y - 16.0);
+                node.top = Val::Px(screen.y - 24.0);
                 *visibility = Visibility::Inherited;
             }
             Err(_) => *visibility = Visibility::Hidden,
         },
         None => *visibility = Visibility::Hidden,
+    }
+    // The ring breathes so the prompt catches the eye.
+    if let Ok(mut ring) = ring.single_mut() {
+        let t = (time.elapsed_secs() * 3.2).fract();
+        *ring = BorderColor::all(Color::srgba(0.96, 0.97, 1.0, 1.0 - t * 0.75));
     }
 }

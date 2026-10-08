@@ -3,7 +3,6 @@
 mod camera;
 mod gait;
 mod combat;
-mod hud;
 mod character;
 mod orc;
 mod player;
@@ -26,7 +25,7 @@ fn main() {
         .add_plugins((character::CharacterPlugin, shot::ShotPlugin))
         .add_systems(Startup, setup_baseplate)
         .add_systems(Update, draw_grid);
-    app.add_plugins((camera::FollowCameraPlugin, player::PlayerPlugin, combat::DummyPlugin, orc::OrcPlugin, world::WorldPlugin, hud::HudPlugin));
+    app.add_plugins((camera::FollowCameraPlugin, player::PlayerPlugin, combat::DummyPlugin, orc::OrcPlugin, world::WorldPlugin));
     app.run();
 }
 

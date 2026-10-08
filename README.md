@@ -35,7 +35,7 @@ An orc stands on the plate and fights back. `cargo run -p som-tool -- <command>`
 ## What is in it
 
 - `som-formats`: readers for the LTAR archives and BNDL bundles, `.skel`, `.anix` animations (with root motion and cues), the game database, the move nodes and combat tables, the behaviour graph.
-- `som-game`: the player (locomotion, free-flow chains, counters, executions, stealth kills, roll, draw / sheathe), orcs with recoils, stuns and attacks, the follow camera, HUD.
+- `som-game`: the player (locomotion, free-flow chains, counters, executions, stealth kills, roll, draw / sheathe), orcs with recoils, stuns and attacks, the follow camera. There is no HUD: only the counter prompt (a mouse icon with a ring over the attacking orc) and the execute prompt are shown.
 - `som-tool`: command line inspection of the data.
 - `NOTES.md`: every format and rule decoded, what is approximate, and what is undecoded. `tools/ghidra`: the scripts used to read the executable.
 
