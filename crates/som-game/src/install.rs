@@ -13,19 +13,21 @@ pub fn ensure() {
     }
     loop {
         let picked = rfd::FileDialog::new()
-            .set_title("Select your Shadow of Mordor install folder (the one that contains the x64 folder)")
+            .set_title("Select your Middle-earth: Shadow of Mordor folder")
             .pick_folder();
         let Some(dir) = picked else {
             eprintln!("No install folder chosen. This project needs your own copy of Middle-earth: Shadow of Mordor; run again and select its folder, or set SOM_DIR.");
             std::process::exit(1);
         };
-        if Vfs::is_install(&dir) {
+        // The game folder itself; if its `x64` subfolder was picked, its parent is the folder meant.
+        let dir = if Vfs::is_install(&dir) { Some(dir) } else { dir.parent().filter(|p| Vfs::is_install(p)).map(|p| p.to_path_buf()) };
+        if let Some(dir) = dir {
             remember(&dir);
             return;
         }
         rfd::MessageDialog::new()
             .set_title("Not a Shadow of Mordor install")
-            .set_description(format!("{} has no x64/default.archcfg. Pick the game's main folder (the one with the x64 folder and the .arch05 files).", dir.display()))
+            .set_description("That folder is not a Shadow of Mordor install. Pick your Middle-earth: Shadow of Mordor game folder.")
             .set_level(rfd::MessageLevel::Warning)
             .show();
     }

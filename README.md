@@ -10,8 +10,7 @@ plain humanoid stick figure (a 26-bone rig defined in code, `Skeleton::humanoid`
 
 ## Run
 
-You need your own copy of Middle-earth: Shadow of Mordor (PC). On the first run a dialog asks for its install folder (the one that contains the `x64` folder
-and the `.arch05` files); the choice is remembered. Nothing starts without it. `--set-install` asks again, and the `SOM_DIR` environment variable overrides it
+You need your own copy of Middle-earth: Shadow of Mordor (PC). On the first run a dialog asks for its game folder (Middle-earth: Shadow of Mordor); the choice is remembered. Nothing starts without it. `--set-install` asks again, and the `SOM_DIR` environment variable overrides it
 (also used by `som-tool`).
 
 ```

@@ -88,7 +88,7 @@ impl Vfs {
                 return Ok(dir);
             }
         }
-        Err(anyhow!("game install not set; set SOM_DIR to your Shadow of Mordor folder (the one with the x64 folder and the .arch05 files)"))
+        Err(anyhow!("game install not set; set SOM_DIR to your Shadow of Mordor folder"))
     }
 
     pub fn bundle(&mut self, archive: usize, entry_name: &str) -> Result<&mut Bundle> {
