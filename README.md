@@ -17,7 +17,7 @@ You need your own copy of Middle-earth: Shadow of Mordor (PC). On the first run 
 cargo run --release -p som-game
 ```
 
-An orc stands on the plate and fights back. `cargo run -p som-tool -- <command>` inspects the data (`ls`, `clips <bank>`, `attacks`, `moves`, `nodes`, `applied`, `db ...`; no arguments lists them).
+An enemy stands on the plate and fights back. `cargo run -p som-tool -- <command>` inspects the data (`ls`, `clips <bank>`, `attacks`, `moves`, `nodes`, `applied`, `db ...`; no arguments lists them).
 
 ## Controls
 
