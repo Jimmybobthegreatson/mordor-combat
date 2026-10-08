@@ -10,8 +10,11 @@ plain humanoid stick figure (a 26-bone rig defined in code, `Skeleton::humanoid`
 
 ## Run
 
+You need your own copy of Middle-earth: Shadow of Mordor (PC). On the first run a dialog asks for its install folder (the one that contains the `x64` folder
+and the `.arch05` files); the choice is remembered. Nothing starts without it. `--set-install` asks again, and the `SOM_DIR` environment variable overrides it
+(also used by `som-tool`).
+
 ```
-set SOM_DIR=C:\Path\To\ShadowOfMordor       (the folder with the .arch05 files; otherwise it is found by walking up from the current directory)
 cargo run --release -p som-game
 ```
 
@@ -35,7 +38,7 @@ An orc stands on the plate and fights back. `cargo run -p som-tool -- <command>`
 ## What is in it
 
 - `som-formats`: readers for the LTAR archives and BNDL bundles, `.skel`, `.anix` animations (with root motion and cues), the game database, the move nodes and combat tables, the behaviour graph.
-- `som-game`: the player (locomotion, free-flow chains, counters, executions, stealth kills, roll, draw / sheathe), orcs with recoils, stuns and attacks, the follow camera. There is no HUD: only the counter prompt (a mouse icon with a ring over the attacking orc) and the execute prompt are shown.
+- `som-game`: the player (locomotion, free-flow chains, counters, executions, stealth kills, roll, draw / sheathe), orcs with recoils, stuns and attacks, the follow camera. HUD: health bar and minimap with the health arc, hit counter (`xN`, red when the Hit Streak is charged), enemy health markers, the counter prompt (a mouse icon with a pulsing ring over the attacking orc) and the execute prompt.
 - `som-tool`: command line inspection of the data.
 - `NOTES.md`: every format and rule decoded, what is approximate, and what is undecoded. `tools/ghidra`: the scripts used to read the executable.
 

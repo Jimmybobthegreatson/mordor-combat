@@ -180,12 +180,11 @@ fn build(commands: &mut Commands, dummies: &mut Dummies) -> anyhow::Result<Orcs>
         ["Bip_Cmbt_Attack_Front_1", "Bip_Cmbt_Attack_Front_3"].into_iter().filter_map(|n| lib.find(n)).collect();
     let death_pose = lib.find("Bip_DeathPose_01");
 
-    let lowest = skeleton.bones.iter().map(|b| b.translation[1]).fold(0.0f32, f32::min);
     let mut orcs = Vec::new();
     for (i, dummy) in dummies.0.iter_mut().enumerate() {
         let entity = commands.spawn((Name::new(format!("Orc {i}")), Transform::from_translation(dummy.pos), Visibility::default())).id();
         let body = commands
-            .spawn((Name::new("orc body"), Transform::from_xyz(0.0, -lowest * 0.01, 0.0), Visibility::default()))
+            .spawn((Name::new("orc body"), Transform::from_xyz(0.0, crate::character::ROOT_HEIGHT, 0.0), Visibility::default()))
             .id();
         commands.entity(entity).add_child(body);
         let pieces = vec![crate::character::spawn_stick(commands, &skeleton, body, Color::srgb(1.0, 0.3, 0.2))];

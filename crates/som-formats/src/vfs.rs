@@ -52,16 +52,43 @@ impl Vfs {
         Ok(Self { root, archives, bundles: HashMap::new(), index: None })
     }
 
-    /// Locate the install: `SOM_DIR`, else walk up from the current directory.
+    /// Whether `dir` is a Shadow of Mordor install (it has `x64/default.archcfg`).
+    pub fn is_install(dir: &Path) -> bool {
+        dir.join("x64").join("default.archcfg").is_file()
+    }
+
+    /// Where the chosen install folder is remembered.
+    pub fn config_file() -> Option<PathBuf> {
+        let base = std::env::var_os("LOCALAPPDATA")
+            .or_else(|| std::env::var_os("XDG_CONFIG_HOME"))
+            .map(PathBuf::from)
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
+        Some(base.join("mordor-combat").join("install_dir.txt"))
+    }
+
+    /// Remember `dir` as the install folder for the next runs.
+    pub fn save_install(dir: &Path) -> Result<()> {
+        let file = Self::config_file().ok_or_else(|| anyhow!("no place to keep the setting"))?;
+        if let Some(parent) = file.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(file, dir.to_string_lossy().as_bytes())?;
+        Ok(())
+    }
+
+    /// Locate the install: the `SOM_DIR` environment variable, else the folder chosen on a previous run. The game asks for the folder
+    /// when neither is set.
     pub fn locate() -> Result<PathBuf> {
         if let Ok(dir) = std::env::var("SOM_DIR") {
             return Ok(PathBuf::from(dir));
         }
-        let cwd = std::env::current_dir()?;
-        cwd.ancestors()
-            .find(|dir| dir.join("x64").join("default.archcfg").is_file())
-            .map(Path::to_path_buf)
-            .ok_or_else(|| anyhow!("game install not found; set SOM_DIR to the folder with the .arch05 files"))
+        if let Some(saved) = Self::config_file().and_then(|f| std::fs::read_to_string(f).ok()) {
+            let dir = PathBuf::from(saved.trim());
+            if Self::is_install(&dir) {
+                return Ok(dir);
+            }
+        }
+        Err(anyhow!("game install not set; set SOM_DIR to your Shadow of Mordor folder (the one with the x64 folder and the .arch05 files)"))
     }
 
     pub fn bundle(&mut self, archive: usize, entry_name: &str) -> Result<&mut Bundle> {

@@ -11,6 +11,10 @@ const GAMEDB: &str = "database/game/game.gamedb";
 /// Length of the sword drawn as a line from the right-hand weapon bone (m).
 const BLADE: f32 = 1.0;
 
+/// The animations put the root (`Null`, the capsule centre) about a metre above the floor: the figure is lifted by this much so its
+/// lowest joints rest on the plate.
+pub const ROOT_HEIGHT: f32 = 1.0;
+
 /// Game units are centimetres.
 const CM: f32 = 0.01;
 
@@ -123,10 +127,8 @@ fn try_load(commands: &mut Commands) -> anyhow::Result<Rig> {
     for bank in crate::combat::bank_paths() {
         lib.add_bank(&vfs.read(&bank)?)?;
     }
-    // Lift the figure so its lowest bone rests on the plate.
-    let lowest = skeleton.bones.iter().map(|b| b.translation[1]).fold(0.0f32, f32::min);
     let player = commands.spawn((Name::new("Player"), Transform::default(), Visibility::default())).id();
-    let root = commands.spawn((Name::new("Talion"), Transform::from_xyz(0.0, -lowest * CM, 0.0), Visibility::default())).id();
+    let root = commands.spawn((Name::new("Talion"), Transform::from_xyz(0.0, ROOT_HEIGHT, 0.0), Visibility::default())).id();
     commands.entity(player).add_child(root);
 
     let db = GameDb::parse(vfs.read(GAMEDB)?)?;

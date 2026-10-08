@@ -1,7 +1,10 @@
-//! Shadow of Mordor combat playground: Talion's skeleton against an orc on a flat baseplate (no character meshes).
+//! Shadow of Mordor combat playground: a stick figure against an orc on a flat baseplate, animated by the game's own data.
+//! The game's install folder must be chosen before it runs (see [`install`]).
 
 mod camera;
 mod gait;
+mod hud;
+mod install;
 mod combat;
 mod character;
 mod orc;
@@ -12,12 +15,13 @@ mod world;
 use bevy::prelude::*;
 
 fn main() {
+    install::ensure();
     let options = shot::Options::from_args();
     let mut app = App::new();
     app.insert_resource(options)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "mordor-rs".into(),
+                title: "mordor-combat".into(),
                 ..default()
             }),
             ..default()
@@ -25,7 +29,7 @@ fn main() {
         .add_plugins((character::CharacterPlugin, shot::ShotPlugin))
         .add_systems(Startup, setup_baseplate)
         .add_systems(Update, draw_grid);
-    app.add_plugins((camera::FollowCameraPlugin, player::PlayerPlugin, combat::DummyPlugin, orc::OrcPlugin, world::WorldPlugin));
+    app.add_plugins((camera::FollowCameraPlugin, player::PlayerPlugin, combat::DummyPlugin, orc::OrcPlugin, world::WorldPlugin, hud::HudPlugin));
     app.run();
 }
 

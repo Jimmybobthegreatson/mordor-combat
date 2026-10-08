@@ -52,9 +52,9 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (init_player, prune_sync_moves, drive_player, update_sword).chain().before(crate::camera::follow_camera),
+            (init_player, prune_sync_moves, drive_player, update_sword, update_combo_hud).chain().before(crate::camera::follow_camera),
         )
-        ;
+        .add_systems(Startup, spawn_hud);
     }
 }
 
@@ -1355,6 +1355,55 @@ fn prune_sync_moves(player: Option<ResMut<Player>>, orcs: Option<Res<crate::orc:
     if let (Some(mut player), Some(orcs)) = (player, orcs) {
         player.prune_moves(|name| orcs.has_clip(name));
         *done = true;
+    }
+}
+
+fn spawn_hud(mut commands: Commands) {
+    // The hit counter, top left, as the game shows it: a white streak with `xN` on it, red once the Hit Streak is charged.
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(214.0),
+            left: Val::Px(0.0),
+            width: Val::Px(230.0),
+            height: Val::Px(5.0),
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.85, 0.95, 1.0, 0.0)),
+        ComboStreak,
+    ));
+    commands.spawn((
+        Text::new(""),
+        TextFont { font_size: bevy::text::FontSize::Px(44.0), ..default() },
+        TextColor(Color::srgb(0.95, 0.95, 0.95)),
+        Node { position_type: PositionType::Absolute, top: Val::Px(184.0), left: Val::Px(26.0), ..default() },
+        ComboHud,
+    ));
+}
+
+#[derive(Component)]
+struct ComboHud;
+
+#[derive(Component)]
+struct ComboStreak;
+
+fn update_combo_hud(
+    player: Option<Res<Player>>,
+    mut hud: Query<(&mut Text, &mut TextColor, &mut TextFont), With<ComboHud>>,
+    mut streak: Query<&mut BackgroundColor, With<ComboStreak>>,
+) {
+    let Ok((mut text, mut color, mut font)) = hud.single_mut() else { return };
+    let Some(p) = player else { return };
+    let combo = p.combat.combo;
+    text.0 = if combo > 0 { format!("x{combo}") } else { String::new() };
+    // Each hit pops the number; it fades as the streak is about to run out.
+    let pop = (1.0 - p.combat.since_hit / 0.22).clamp(0.0, 1.0);
+    let fade = (1.0 - (p.combat.since_hit - (COMBO_TIMEOUT - 1.0)).max(0.0)).clamp(0.0, 1.0);
+    font.font_size = bevy::text::FontSize::Px(44.0 + 20.0 * pop);
+    color.0 = if p.combat.charged { Color::srgba(1.0, 0.16, 0.08, fade) } else { Color::srgba(0.96, 0.96, 0.96, fade) };
+    if let Ok(mut bar) = streak.single_mut() {
+        let glow = if combo > 0 { (0.35 + 0.65 * pop) * fade } else { 0.0 };
+        bar.0 = Color::srgba(0.8, 0.93, 1.0, glow);
     }
 }
 
